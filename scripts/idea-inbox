@@ -1,0 +1,8 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Simple wrapper so the agent can call a stable path.
+# Usage: scripts/idea-inbox <args...>
+
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+exec /usr/bin/python "$ROOT_DIR/src/idea_inbox/cli.py" "$@"

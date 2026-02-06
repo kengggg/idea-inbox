@@ -1,0 +1,13 @@
+# data/state
+state/state.json
+
+# vault should NOT be committed
+/vault/
+
+# python
+__pycache__/
+*.pyc
+.venv/
+
+# OS
+.DS_Store
