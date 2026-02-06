@@ -249,7 +249,13 @@ def cmd_enrich_cancel(args: argparse.Namespace) -> int:
 
 def cmd_refs(args: argparse.Namespace) -> int:
     # Fetch and print JSON refs (agent will format + add relevance text)
-    refs = openalex_search(args.query, per_page=max(10, args.limit * 3), mailto=args.mailto)
+    refs = openalex_search(
+        args.query,
+        per_page=max(10, args.limit * 3),
+        mailto=args.mailto,
+        sort=args.sort,
+        from_year=args.from_year,
+    )
 
     # basic filtering: keep works with a venue OR a DOI/URL, and avoid obvious books
     filtered = []
@@ -449,6 +455,17 @@ def main(argv: list[str]) -> int:
     pr.add_argument("--query", required=True)
     pr.add_argument("--limit", type=int, default=5)
     pr.add_argument("--mailto", default=None)
+    pr.add_argument(
+        "--sort",
+        default=None,
+        help='OpenAlex sort, e.g. "publication_date:desc"',
+    )
+    pr.add_argument(
+        "--from-year",
+        type=int,
+        default=None,
+        help="Filter to works published from this year (inclusive)",
+    )
     pr.set_defaults(func=cmd_refs)
 
     pa = sub.add_parser("append")

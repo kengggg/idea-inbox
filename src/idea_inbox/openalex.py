@@ -33,11 +33,23 @@ def _get(obj: dict[str, Any], path: str, default=None):
     return cur if cur is not None else default
 
 
-def search(query: str, per_page: int = 10, mailto: str | None = None) -> list[Ref]:
+def search(
+    query: str,
+    per_page: int = 10,
+    mailto: str | None = None,
+    sort: str | None = None,
+    from_year: int | None = None,
+) -> list[Ref]:
     params = {
         "search": query,
         "per-page": str(per_page),
     }
+    if sort:
+        # e.g. "publication_date:desc"
+        params["sort"] = sort
+    if from_year:
+        # OpenAlex filter syntax
+        params["filter"] = f"from_publication_date:{from_year}-01-01"
     if mailto:
         params["mailto"] = mailto
 
