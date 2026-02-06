@@ -180,17 +180,36 @@ def cmd_start(args: argparse.Namespace) -> int:
 
 
 def cmd_cancel(args: argparse.Namespace) -> int:
+    """Cancel any pending interactive flow.
+
+    In v1.1 we treat `/cancel` as a universal cancel for both:
+    - idea capture pending
+    - enrichment clarifier pending
+    """
     state_path = Path(args.state)
     state = ensure_not_expired(State.load(state_path), now_local())
-    if not state.pending:
-        print("OK no_pending")
-        return 0
+
+    had_any = state.pending or state.enrich_pending
+
+    # capture
     state.pending = False
     state.pending_until = None
     state.started_at = None
     state.user_id = None
+
+    # enrichment follow-up
+    state.enrich_pending = False
+    state.enrich_until = None
+    state.enrich_user_id = None
+    state.enrich_file = None
+    state.enrich_idea_text = None
+
     state.save(state_path)
-    print("OK cancelled")
+
+    if not had_any:
+        print("OK no_pending")
+    else:
+        print("OK cancelled")
     return 0
 
 
