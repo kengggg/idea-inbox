@@ -17,6 +17,7 @@ Commands:
   enrich-cancel - cancel enrichment follow-up pending
   refs          - fetch top references from OpenAlex for a query (JSON)
   append        - append markdown to an existing idea file
+  wiki          - find a best-effort Wikipedia page for a query (JSON)
 
 All outputs are line-oriented for easy agent parsing.
 """
@@ -33,6 +34,7 @@ from datetime import datetime, timedelta
 from pathlib import Path
 
 from idea_inbox.openalex import search as openalex_search
+from idea_inbox.wikipedia import search as wiki_search, summary as wiki_summary
 
 
 DEFAULT_TIMEOUT_SECONDS = 120
@@ -299,6 +301,29 @@ def cmd_append(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_wiki(args: argparse.Namespace) -> int:
+    # Best-effort: take top search result and return its summary.
+    candidates = wiki_search(args.query, limit=5)
+    if not candidates:
+        print(json.dumps({"query": args.query, "found": False}, ensure_ascii=False))
+        return 0
+    best = candidates[0]
+    s = wiki_summary(best.title)
+    print(
+        json.dumps(
+            {
+                "query": args.query,
+                "found": True,
+                "title": s.title,
+                "url": s.url,
+                "extract": s.extract,
+            },
+            ensure_ascii=False,
+        )
+    )
+    return 0
+
+
 def cmd_status(args: argparse.Namespace) -> int:
     state_path = Path(args.state)
     state = ensure_not_expired(State.load(state_path), now_local())
@@ -472,6 +497,10 @@ def main(argv: list[str]) -> int:
     pa.add_argument("--file", required=True)
     pa.add_argument("--markdown", required=True)
     pa.set_defaults(func=cmd_append)
+
+    pw = sub.add_parser("wiki")
+    pw.add_argument("--query", required=True)
+    pw.set_defaults(func=cmd_wiki)
 
     args = p.parse_args(argv2)
     return args.func(args)
