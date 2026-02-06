@@ -17,6 +17,7 @@ Commands:
   enrich-cancel - cancel enrichment follow-up pending
   refs          - fetch top references from OpenAlex for a query (JSON)
   append        - append markdown to an existing idea file
+  wiki          - find a best-effort Wikipedia page for a query (JSON)
 
 All outputs are line-oriented for easy agent parsing.
 """
@@ -33,6 +34,7 @@ from datetime import datetime, timedelta
 from pathlib import Path
 
 from idea_inbox.openalex import search as openalex_search
+from idea_inbox.wikipedia import search as wiki_search, summary as wiki_summary
 
 
 DEFAULT_TIMEOUT_SECONDS = 120
@@ -249,7 +251,13 @@ def cmd_enrich_cancel(args: argparse.Namespace) -> int:
 
 def cmd_refs(args: argparse.Namespace) -> int:
     # Fetch and print JSON refs (agent will format + add relevance text)
-    refs = openalex_search(args.query, per_page=max(10, args.limit * 3), mailto=args.mailto)
+    refs = openalex_search(
+        args.query,
+        per_page=max(10, args.limit * 3),
+        mailto=args.mailto,
+        sort=args.sort,
+        from_year=args.from_year,
+    )
 
     # basic filtering: keep works with a venue OR a DOI/URL, and avoid obvious books
     filtered = []
@@ -290,6 +298,29 @@ def cmd_append(args: argparse.Namespace) -> int:
     path.write_text(existing + sep + content.rstrip() + "\n", encoding="utf-8")
     print("OK appended")
     print(f"FILE {path}")
+    return 0
+
+
+def cmd_wiki(args: argparse.Namespace) -> int:
+    # Best-effort: take top search result and return its summary.
+    candidates = wiki_search(args.query, limit=5)
+    if not candidates:
+        print(json.dumps({"query": args.query, "found": False}, ensure_ascii=False))
+        return 0
+    best = candidates[0]
+    s = wiki_summary(best.title)
+    print(
+        json.dumps(
+            {
+                "query": args.query,
+                "found": True,
+                "title": s.title,
+                "url": s.url,
+                "extract": s.extract,
+            },
+            ensure_ascii=False,
+        )
+    )
     return 0
 
 
@@ -449,12 +480,27 @@ def main(argv: list[str]) -> int:
     pr.add_argument("--query", required=True)
     pr.add_argument("--limit", type=int, default=5)
     pr.add_argument("--mailto", default=None)
+    pr.add_argument(
+        "--sort",
+        default=None,
+        help='OpenAlex sort, e.g. "publication_date:desc"',
+    )
+    pr.add_argument(
+        "--from-year",
+        type=int,
+        default=None,
+        help="Filter to works published from this year (inclusive)",
+    )
     pr.set_defaults(func=cmd_refs)
 
     pa = sub.add_parser("append")
     pa.add_argument("--file", required=True)
     pa.add_argument("--markdown", required=True)
     pa.set_defaults(func=cmd_append)
+
+    pw = sub.add_parser("wiki")
+    pw.add_argument("--query", required=True)
+    pw.set_defaults(func=cmd_wiki)
 
     args = p.parse_args(argv2)
     return args.func(args)
